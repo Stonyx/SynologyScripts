@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Declare needed variables
-declare -A shared_folder_snapshot_map=(["/volume1/Media"]="/volume1/@sharesnap/Media" \
-   ["/volume1/Storage"]="/volume2/@sharesnap/Storage")
+declare -A shared_folder_snapshot_map=(["/volume1/media"]="/volume1/@sharesnap/media" \
+   ["/volume1/storage"]="/volume2/@sharesnap/storage")
 
 # Loop through the shared folder paths
 declare -i make_things_pretty=1
