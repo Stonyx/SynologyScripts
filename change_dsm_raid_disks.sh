@@ -18,7 +18,7 @@ do
   # Check if the array devices count is less than or equal to the number of disks to keep
   if (( $array_devices_count <= ${#disks_to_keep[@]} ))
   then
-    echo "The \"$dsm_array\" raid array device count is already less than or equal to the number" \
+    echo "The $dsm_array raid array device count is already less than or equal to the number" \
       "of disks to keep."
     echo "No actions will be performed."
     exit 1
@@ -43,7 +43,7 @@ do
       array_devices_details=$(echo "$array_devices_details" | grep --extended-regex \
         --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +active sync +$partition$")
     else
-      echo "The \"$partition\" partition is not an active device in the \"$dsm_array\" raid array."
+      echo "The $partition partition is not an active device in the $dsm_array raid array."
       echo "Double check the specified disks to keep."
       echo "No actions will be performed."
       exit 1
@@ -67,8 +67,8 @@ do
         --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +active sync +$partition$" | grep \
         --extended-regex --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +- +spare +$partition$")
     else
-      echo "The \"$partition\" partition is not an active or spare device in the \"$dsm_array\"" \
-        "raid array."
+      echo "The $partition partition is not an active or spare device in the $dsm_array raid" \
+        "array."
       echo "Double check the specified disks to remove."
       echo "No actions will be performed."
       exit 1
@@ -82,7 +82,7 @@ do
   # Check if there are any other devices left in the array devices details string
   if [[ "$array_devices_details" != "" ]]
   then
-    echo "The \"$dsm_array\" raid array has unexpected devices or device states."
+    echo "The $dsm_array raid array has unexpected devices or device states."
     echo "No actions will be performed."
     exit 1
   fi
@@ -92,9 +92,9 @@ done
 declare -i make_things_pretty=1
 for dsm_array in "${!dsm_array_partition_map[@]}"
 do
-  # Preface the verbose output from the mdadm commands
-  echo "The change_dsm_raid_disks.sh script performed the following action(s) on the" \
-    "\"$dsm_array\" raid array:"
+  # Preface the output from the mdadm commands
+  echo "The change_dsm_raid_disks.sh script performed the following action(s) on the $dsm_array" \
+    "raid array:"
 
   # Loop through the disks to remove
   declare -a removed_partitions=()
@@ -104,23 +104,24 @@ do
     declare partition="$disk_to_remove${dsm_array_partition_map[$dsm_array]}"
 
     # Remove the partition from this array and add it to the removed partitions array
-    mdadm --manage "$dsm_array" --fail "$partition" --remove "$partition" --verbose
+    mdadm --manage "$dsm_array" --fail "$partition" --remove "$partition"
     removed_partitions+=("$partition")
   done
 
   # Resize this array
+  echo -n "mdadm: "
   if (( ${#disks_to_keep[@]} == 1 ))
   then
-    mdadm --grow --raid-devices=${#disks_to_keep[@]} "$dsm_array" --force --verbose
+    mdadm --grow --raid-devices=${#disks_to_keep[@]} "$dsm_array" --force
   else
-    mdadm --grow --raid-devices=${#disks_to_keep[@]} "$dsm_array" --verbose
+    mdadm --grow --raid-devices=${#disks_to_keep[@]} "$dsm_array"
   fi
 
   # Loop through the removed partitions
   for removed_partition in "${removed_partitions[@]}"
   do
     # Add the partition back to this array as a spare device
-    mdadm --manage "$dsm_array" --add-spare "$removed_partition" --verbose
+    mdadm --manage "$dsm_array" --add-spare "$removed_partition"
   done
 
   # Make things pretty
