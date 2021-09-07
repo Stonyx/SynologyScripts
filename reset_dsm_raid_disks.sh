@@ -17,7 +17,7 @@ do
   # Check if the array devices count is 16
   if (( $array_devices_count == 16 ))
   then
-    echo "The \"$dsm_array\" raid array device count is already set to 16."
+    echo "The $dsm_array raid array device count is already set to 16."
     echo "No actions will be performed."
     exit 1
   fi
@@ -44,8 +44,8 @@ do
         --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +active sync +$partition$" | grep \
         --extended-regex --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +- +spare +$partition$")
     else
-      echo "The \"$partition\" partition is not an active or spare device in the \"$dsm_array\"" \
-        "raid array."
+      echo "The $partition partition is not an active or spare device in the $dsm_array raid" \
+        "array."
       echo "Double check the specified disks to remove."
       echo "No actions will be performed."
       exit 1
@@ -59,19 +59,28 @@ do
   # Check if there are any other devices left in the array devices details string
   if [[ "$array_devices_details" != "" ]]
   then
-    echo "Unexpected devices or device states in the \"$dsm_array\" raid array."
+    echo "Unexpected devices or device states in the $dsm_array raid array."
     echo "No actions will be performed."
     exit 1
   fi
 done
 
 # Loop through the DSM arrays and perform the changes
+declare -i make_things_pretty=1
 for dsm_array in "${!dsm_array_partition_map[@]}"
 do
-  # Preface the verbose output from the mdadm commands
-  echo "The reset_dsm_raid_disks.sh script performed the following action(s) on" \
-    "\"$dsm_array\" raid array:"
+  # Preface the output from the mdadm commands
+  echo "The reset_dsm_raid_disks.sh script performed the following action(s) on $dsm_array raid" \
+    "array:"
 
   # Resize the array
-  mdadm --grow --raid-devices=16 "$dsm_array" --force --verbose
+  echo -n "mdadm: "
+  mdadm --grow --raid-devices=16 "$dsm_array" --force
+
+  # Make things pretty
+  if (( $make_things_pretty == 1 ))
+  then
+    echo
+    make_things_pretty=0
+  fi
 done
