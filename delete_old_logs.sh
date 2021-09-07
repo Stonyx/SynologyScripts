@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Declare needed variables
-declare task_logs_path="/volume3/system/scripts/output"
-declare archived_logs_path="/volume3/system/logs"
+declare task_logs_path="/volume1/system/scriptoutput"
+declare archived_logs_path="/volume1/system/logs"
 
 # Get the epoch time for one month ago
 declare -i one_month_ago=$(date -d "1 month ago" +%s)
