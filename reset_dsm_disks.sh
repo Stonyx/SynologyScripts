@@ -28,10 +28,10 @@ do
     --invert-match "^ +Number +Major +Minor +RaidDevice +State$")
 
   # Loop through the disks to use
-  for disk_to_use in "${disks_to_use[@]}"
+  for disk in "${disks_to_use[@]}"
   do
     # Get the corresponding disk partition for this array
-    declare partition="$disk_to_use${dsm_array_partition_map[$dsm_array]}"
+    declare partition="$disk${dsm_array_partition_map[$dsm_array]}"
 
     # Check if the partition is part of this array as an active device or as a spare device
     if echo "$array_devices_details" | grep --extended-regex \
@@ -39,14 +39,14 @@ do
       echo "$array_devices_details" | grep --extended-regex \
       "^ +[0-9]+ +[0-9]+ +[0-9]+ +- +spare +$partition$" --quiet
     then
-      # Remove this device from the array devices details string
+      # Remove the partition from the array devices details string
       array_devices_details=$(echo "$array_devices_details" | grep --extended-regex \
         --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +active sync +$partition$" | grep \
         --extended-regex --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +- +spare +$partition$")
     else
       echo "The $partition partition is not an active or spare device in the $dsm_array raid" \
         "array."
-      echo "Double check the specified disks to remove."
+      echo "Double check the specified disk(s) to use."
       echo "No actions will be performed."
       exit 1
     fi
@@ -70,12 +70,11 @@ declare -i make_things_pretty=1
 for dsm_array in "${!dsm_array_partition_map[@]}"
 do
   # Preface the output from the mdadm commands
-  echo "The reset_dsm_raid_disks.sh script performed the following action(s) on $dsm_array raid" \
-    "array:"
+  echo "The reset_dsm_disks.sh script performed the following action(s) on $dsm_array raid array:"
 
   # Resize the array
   echo -n "mdadm: "
-  mdadm --grow --raid-devices=16 "$dsm_array" --force
+  mdadm --grow --raid-devices=16 --force "$dsm_array"
 
   # Make things pretty
   if (( $make_things_pretty == 1 ))
