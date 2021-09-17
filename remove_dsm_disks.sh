@@ -5,7 +5,8 @@ declare -a disks_to_use=("/dev/sda" "/dev/sde")
 declare -a disks_to_not_use=("/dev/sdb" "/dev/sdc" "/dev/sdd")
 declare -A array_partition_map=(["/dev/md0"]="1" ["/dev/md1"]="2")
 
-# Loop through the DSM arrays and make sure everything is as expected
+# Loop through the DSM arrays
+declare -i make_things_pretty=1
 for array in "${!array_partition_map[@]}"
 do
   # Get the array details
@@ -20,8 +21,13 @@ do
   then
     echo "The $array raid array device count is already less than or equal to the number" \
       "of disks to use."
-    echo "No actions will be performed."
-    exit 1
+    echo "No actions will be performed on the $array raid array."
+    if (( $make_things_pretty == 1 ))
+    then
+      echo
+      make_things_pretty=0
+    fi
+    continue
   fi
 
   # Get the array devices details
@@ -46,8 +52,13 @@ do
     else
       echo "The $partition partition is not an active device in the $array raid array."
       echo "Double check the specified disk(s) to use or disk(s) to not use."
-      echo "No actions will be performed."
-      exit 1
+      echo "No actions will be performed on the $array raid array."
+      if (( $make_things_pretty == 1 ))
+      then
+        echo
+        make_things_pretty=0
+      fi
+      continue 2
     fi
   done
 
@@ -59,18 +70,17 @@ do
   if [[ "$array_devices_details" != "" ]]
   then
     echo "The $array raid array has unexpected devices or device states."
-    echo "No actions will be performed."
-    exit 1
+    echo "No actions will be performed on the $array raid array."
+    if (( $make_things_pretty == 1 ))
+    then
+      echo
+      make_things_pretty=0
+    fi
+    continue
   fi
-done
 
-# Loop through the DSM arrays and perform the changes
-declare -i make_things_pretty=1
-for array in "${!array_partition_map[@]}"
-do
   # Preface the output from the mdadm commands
-  echo "The remove_dsm_disks.sh script performed the following action(s) on the $array raid" \
-    "array:"
+  echo "Performed the following actions on the $array raid array:"
 
   # Loop through the disks to not use
   declare -a removed_partitions=()
