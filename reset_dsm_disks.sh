@@ -2,13 +2,14 @@
 
 # Declare needed variables
 declare -a disks_to_use=("/dev/sda" "/dev/sdb" "/dev/sdc" "/dev/sdd" "/dev/sde")
-declare -A dsm_array_partition_map=(["/dev/md0"]="1" ["/dev/md1"]="2")
+declare -A array_partition_map=(["/dev/md0"]="1" ["/dev/md1"]="2")
 
-# Loop through the arrays and make sure everything is as expected
-for dsm_array in "${!dsm_array_partition_map[@]}"
+# Loop through the arrays
+declare -i make_things_pretty=1
+for array in "${!array_partition_map[@]}"
 do
   # Get the array details
-  declare array_details=$(mdadm --misc --detail "$dsm_array")
+  declare array_details=$(mdadm --misc --detail "$array")
 
   # Get the array devices count
   declare -i array_devices_count=$(echo "$array_details" | grep --extended-regex \
@@ -17,9 +18,14 @@ do
   # Check if the array devices count is 16
   if (( $array_devices_count == 16 ))
   then
-    echo "The $dsm_array raid array device count is already set to 16."
-    echo "No actions will be performed."
-    exit 1
+    echo "The $array raid array device count is already set to 16."
+    echo "No actions will be performed on the $array raid array."
+    if (( $make_things_pretty == 1 ))
+    then
+      echo
+      make_things_pretty=0
+    fi
+    continue
   fi
 
   # Get the array devices details
@@ -31,7 +37,7 @@ do
   for disk in "${disks_to_use[@]}"
   do
     # Get the corresponding disk partition for this array
-    declare partition="$disk${dsm_array_partition_map[$dsm_array]}"
+    declare partition="$disk${array_partition_map[$array]}"
 
     # Check if the partition is part of this array as an active device or as a spare device
     if echo "$array_devices_details" | grep --extended-regex \
@@ -44,11 +50,16 @@ do
         --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +active sync +$partition$" | grep \
         --extended-regex --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +- +spare +$partition$")
     else
-      echo "The $partition partition is not an active or spare device in the $dsm_array raid" \
+      echo "The $partition partition is not an active or spare device in the $array raid" \
         "array."
       echo "Double check the specified disk(s) to use."
-      echo "No actions will be performed."
-      exit 1
+      echo "No actions will be performed on the $array raid array."
+      if (( $make_things_pretty == 1 ))
+      then
+        echo
+        make_things_pretty=0
+      fi
+      continue 2
     fi
   done
 
@@ -59,22 +70,39 @@ do
   # Check if there are any other devices left in the array devices details string
   if [[ "$array_devices_details" != "" ]]
   then
-    echo "Unexpected devices or device states in the $dsm_array raid array."
-    echo "No actions will be performed."
-    exit 1
+    echo "Unexpected devices or device states in the $array raid array."
+    echo "No actions will be performed on the $array raid array."
+    if (( $make_things_pretty == 1 ))
+    then
+      echo
+      make_things_pretty=0
+    fi
+    continue
   fi
-done
 
-# Loop through the DSM arrays and perform the changes
-declare -i make_things_pretty=1
-for dsm_array in "${!dsm_array_partition_map[@]}"
-do
   # Preface the output from the mdadm commands
-  echo "The reset_dsm_disks.sh script performed the following action(s) on $dsm_array raid array:"
+  echo "Performed the following action on $array raid array:"
 
   # Resize the array
   echo -n "mdadm: "
-  mdadm --grow --raid-devices=16 --force "$dsm_array"
+  mdadm --grow --raid-devices=16 --force "$array"
+  echo "Waiting for $array raid array to finish rebuilding ..."
+
+  # Wait 60 seconds
+  sleep 60
+
+  # Update the array details
+  array_details=$(mdadm --misc --detail "$array")
+
+  # Wait until the array is no longer in recovering state
+  while echo "$array_details" | grep --extended-regex "^ +State : .*recovering.*$" --quiet
+  do
+    # Wait 60 seconds
+    sleep 60
+
+    # Update the array details
+    array_details=$(mdadm --misc --detail "$array")
+  done
 
   # Make things pretty
   if (( $make_things_pretty == 1 ))
