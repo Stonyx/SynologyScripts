@@ -34,13 +34,15 @@ do
   declare -i array_devices_count=$(echo "$array_details" | grep --extended-regex \
     "^ +Raid Devices : [0-9]+$" | grep --extended-regex --only-matching "[0-9]+")
 
-  # Check if the array devices count is less than the number of disks to restore to or not
-  #   equal to the number of disks to restore to and disks to not use have been specified
-  if (( $array_devices_count < ${#disks_to_restore_to[@]} + 1 || 
-    ($array_devices_count != ${#disks_to_restore_to[@]} + 1 && ${#disks_to_not_use[@]} > 0) ))
+  # Check if the array devices count is less than one (number of disks to restore from) plus the
+  #   number of disks to restore to or greater than one (number of disks to restore from) plus the
+  #   number of disks to restore to and disks to not use have been specified
+  if (( $array_devices_count < 1 + ${#disks_to_restore_to[@]} || 
+    ($array_devices_count > 1 + ${#disks_to_restore_to[@]} && ${#disks_to_not_use[@]} > 0) ))
   then
-    echo "The $array raid array device count is less than the number of disks to restore" \
-      "to or not equal to the number of disks to restore to and disks to not use have been" \
+    echo "The $array raid array device count is less than one (the nubmer of disks to restore" \
+      "from) plus the number of disks to restore to or greater than one (the number of disks to" \
+      "restore from) plus the number of disks to restore to and disks to not use have been" \
       "specified."
     echo "Double check the specified disk(s) to restore to or disk(s) to not use."
     echo "No actions will be performed on the $array raid array."
@@ -79,11 +81,11 @@ do
     continue
   fi
 
-  # Remove removed devices from the array devices details string
+  # Remove removed devices from the array devices details
   array_devices_details=$(echo "$array_devices_details" | grep --extended-regex --invert-match \
     "^ +- +[0-9]+ +[0-9]+ +[0-9]+ +removed$")    
 
-  # Check if there are any other devices left in the array devices details string
+  # Check if there are any devices left in the array devices details string
   if [[ "$array_devices_details" != "" ]]
   then
     echo "The $array raid array has unexpected devices or device states."
@@ -97,7 +99,7 @@ do
   fi
 
   # Preface the output from the mdadm commands
-  echo "Performed the following action on the $array raid array:"
+  echo "Performed the following action(s) on the $array raid array:"
 
   # Loop through the disks to restore to
   for disk_to_restore_to in "${disks_to_restore_to[@]}"
@@ -109,6 +111,10 @@ do
     mdadm --manage "$array" --add "$partition"
   done
 
+  # Wait for the array to finish rebuilding
+  echo "Waiting for $array raid array to finish rebuilding ..."
+  mdadm --misc --wait "$array"
+
   # Loop through the disks to not use
   for disk_to_not_use in "${disks_to_not_use[@]}"
   do
@@ -118,7 +124,7 @@ do
     # Add the partition back to this array as a spare device
     mdadm --manage "$array" --add-spare "$partition"
   done
- 
+
   # Make things pretty
   if (( $make_things_pretty == 1 ))
   then
