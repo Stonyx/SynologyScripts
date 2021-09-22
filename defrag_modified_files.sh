@@ -1,16 +1,18 @@
 #!/bin/bash
 
 # Declare needed variables
-declare -A shared_folder_snapshot_map=(["/volume1/media"]="/volume1/@sharesnap/media" \
-   ["/volume1/storage"]="/volume2/@sharesnap/storage")
+declare -A shared_folder_snapshot_map=(["/volume1/Media"]="/volume1/@sharesnap/Media" \
+   ["/volume2/Storage"]="/volume2/@sharesnap/Storage" \
+   ["/volume3/docker"]="/volume3/@sharesnap/docker" \
+   ["/volume3/system"]="/volume3/@sharesnap/system")
 
 # Loop through the shared folder paths
 declare -i make_things_pretty=1
 for shared_folder_path in "${!shared_folder_snapshot_map[@]}"
 do
   # Preface the verbose output from the btrfs commands
-  echo "The defrag_modified_files.sh script defragmented the following file(s) in the" \
-    "${shared_folder_path#/volume*/} shared folder:"
+  echo "Defragmented the following file(s) (if any) in the ${shared_folder_path#/volume*/}" \
+    "shared folder:"
 
   # Get the snapshots path for this shared folder
   declare snapshots_path="${shared_folder_snapshot_map[$shared_folder_path]}"
@@ -42,8 +44,9 @@ do
   #       command's regex argument
   done < <(find "$snapshots_path" -maxdepth 1 -type d ! -path "$snapshots_path" -print0)
 
-  # Find all files modified since the newest snapshot time and loop through them
-  find "$shared_folder_path" -type f -newermt "@$newest_snapshot_time" -print0 | \
+  # Find all files within the filesystem modified since the newest snapshot time and loop through
+  #   them
+  find "$shared_folder_path" -xdev -type f -newermt "@$newest_snapshot_time" -print0 | \
     while IFS="" read -d "" -r file
   do
     # Defrag the file
@@ -51,7 +54,7 @@ do
   done
 
   # Make things pretty
-  if (( $make_things_pretty != ${#shared_folder_snapshot_map[@]} ))
+  if (( $make_things_pretty < ${#shared_folder_snapshot_map[@]} ))
   then
     echo
     make_things_pretty=$((make_things_pretty + 1))
