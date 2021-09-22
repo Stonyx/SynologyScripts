@@ -45,7 +45,7 @@ do
       echo "$array_devices_details" | grep --extended-regex \
       "^ +[0-9]+ +[0-9]+ +[0-9]+ +- +spare +$partition$" --quiet
     then
-      # Remove the partition from the array devices details string
+      # Remove the partition from the array devices details
       array_devices_details=$(echo "$array_devices_details" | grep --extended-regex \
         --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +active sync +$partition$" | grep \
         --extended-regex --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +- +spare +$partition$")
@@ -63,14 +63,10 @@ do
     fi
   done
 
-  # Remove removed devices from the array devices details string
-  array_devices_details=$(echo "$array_devices_details" | grep --extended-regex --invert-match \
-    "^ +- +[0-9]+ +[0-9]+ +[0-9]+ +removed$")    
-
-  # Check if there are any other devices left in the array devices details string
+  # Check if there are any devices left in the array devices details
   if [[ "$array_devices_details" != "" ]]
   then
-    echo "Unexpected devices or device states in the $array raid array."
+    echo "The $array raid array has unexpected devices or device states."
     echo "No actions will be performed on the $array raid array."
     if (( $make_things_pretty == 1 ))
     then
@@ -81,28 +77,15 @@ do
   fi
 
   # Preface the output from the mdadm commands
-  echo "Performed the following action on $array raid array:"
+  echo "Performed the following action(s) on $array raid array:"
 
   # Resize the array
   echo -n "mdadm: "
   mdadm --grow --raid-devices=16 --force "$array"
+
+  # Wait for the array to finish rebuilding
   echo "Waiting for $array raid array to finish rebuilding ..."
-
-  # Wait 60 seconds
-  sleep 60
-
-  # Update the array details
-  array_details=$(mdadm --misc --detail "$array")
-
-  # Wait until the array is no longer in recovering state
-  while echo "$array_details" | grep --extended-regex "^ +State : .*recovering.*$" --quiet
-  do
-    # Wait 60 seconds
-    sleep 60
-
-    # Update the array details
-    array_details=$(mdadm --misc --detail "$array")
-  done
+  mdadm --misc --wait "$array"
 
   # Make things pretty
   if (( $make_things_pretty == 1 ))
