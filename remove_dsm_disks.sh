@@ -36,7 +36,7 @@ do
     --invert-match "^ +Number +Major +Minor +RaidDevice +State$")
 
   # Loop through all the disks
-  declare disks=("${disks_to_use[@]}" "${disks_to_not_use[@]}")
+  declare -a disks=("${disks_to_use[@]}" "${disks_to_not_use[@]}")
   for disk in "${disks[@]}"
   do
     # Get the corresponding disk partition for this array
@@ -46,7 +46,7 @@ do
     if echo "$array_devices_details" | grep --extended-regex \
       "^ +[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +active sync +$partition$" --quiet
     then
-      # Remove the partition from the array devices details string
+      # Remove the partition from the array devices details
       array_devices_details=$(echo "$array_devices_details" | grep --extended-regex \
         --invert-match "^ +[0-9]+ +[0-9]+ +[0-9]+ +[0-9]+ +active sync +$partition$")
     else
@@ -62,11 +62,11 @@ do
     fi
   done
 
-  # Remove removed devices from the array devices details string
+  # Remove removed devices from the array devices details
   array_devices_details=$(echo "$array_devices_details" | grep --extended-regex --invert-match \
     "^ +- +[0-9]+ +[0-9]+ +[0-9]+ +removed$")    
 
-  # Check if there are any other devices left in the array devices details string
+  # Check if there are any devices left in the array devices details
   if [[ "$array_devices_details" != "" ]]
   then
     echo "The $array raid array has unexpected devices or device states."
@@ -80,18 +80,29 @@ do
   fi
 
   # Preface the output from the mdadm commands
-  echo "Performed the following actions on the $array raid array:"
+  echo "Performed the following action(s) on the $array raid array:"
 
   # Loop through the disks to not use
-  declare -a removed_partitions=()
+  declare -a partitions_to_not_use=()
   for disk in "${disks_to_not_use[@]}"
   do
-    # Get the corresponding disk partition for this array
+    # Get the corresponding disk partition for this array and add it to the partitions to not use
+    #   array
     declare partition="$disk${array_partition_map[$array]}"
+    partitions_to_not_use+=("$partition")
 
-    # Remove the partition from this array and add it to the removed partitions array
-    mdadm --manage "$array" --fail "$partition" --remove "$partition"
-    removed_partitions+=("$partition")
+    # Fail the partition in this array in preparation for removing the partition
+    mdadm --manage "$array" --fail "$partition"
+  done
+
+  # Wait to avoid device busy errors
+  sleep 1
+
+  # Loop through the partitions to not use
+  for partition in "${partitions_to_not_use[@]}"
+  do
+    # Remove the partition from this array
+    mdadm --manage "$array" --remove "$partition"
   done
 
   # Resize this array
@@ -103,8 +114,8 @@ do
     mdadm --grow --raid-devices=${#disks_to_use[@]} "$array"
   fi
 
-  # Loop through the removed partitions
-  for partition in "${removed_partitions[@]}"
+  # Loop through the partitions to not use
+  for partition in "${partitions_to_not_use[@]}"
   do
     # Add the partition back to this array as a spare device
     mdadm --manage "$array" --add-spare "$partition"
